@@ -66,7 +66,7 @@ async def one(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.answer()
 
     await query.edit_message_text(
-        text="Введите данные продажи в формате: \nДата (yyyy-MM-dd)\n"
+        text="Введите данные продажи в формате: \n\nДата (yyyy-MM-dd)\n"
              "Название товара \nЦена за единицу \nКоличество"
     )
     return INPUT_ROUTES
@@ -78,8 +78,8 @@ async def two(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.answer()
 
     await query.edit_message_text(
-        text="Введите дату начала и дату конца учетного периода в формате: "
-             "\nДата налача (yyyy-MM-dd)\nДата конца")
+        text="Введите дату начала и дату конца учетного периода в формате:\n "
+             "\nДата начала (yyyy-MM-dd)\nДата конца   (yyyy-MM-dd)")
     return SHOW_ROUTES
 
 
@@ -93,7 +93,8 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-async def write_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def write_data(update: Update,
+                     context: ContextTypes.DEFAULT_TYPE) -> int:
     # await update.message.reply_text(update.message.text)
     data = update.message.text.split("\n")
     if not insert_input_checker(data):
@@ -151,7 +152,8 @@ def stats_input_checker(data):
 
 def main() -> None:
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token("6204437005:AAF28-Lep02stJ7BQ8auXy-xXsR8hAg2Vco").build()
+    application = Application.builder().\
+        token("6204437005:AAF28-Lep02stJ7BQ8auXy-xXsR8hAg2Vco").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],

@@ -36,20 +36,34 @@ def get_stat(data):
                 password="Mishga17",
                 database="mishgauq_sales",
         ) as connection:
-            res_msg = ""
+            res_msg = "Отчет по продажам за период\n____________________\n"
             select_query = """ SELECT sum(summary), count(summary) 
                                 FROM
                                     (SELECT *, price*amount as summary 
                                     FROM sales 
                                     WHERE date >= '{0}' and date <= '{1}') as production
                             """.format(start_date, end_date)
-
-            print(select_query)
+            select_query_top = """ SELECT product, sum(amount)  
+                                   FROM sales 
+                                   WHERE date >= '{0}' and date <= '{1}'
+                                   GROUP BY product
+                                   ORDER BY sum(amount) desc 
+                                   LIMIT 3
+                            """.format(start_date, end_date)
             with connection.cursor() as cursor:
                 cursor.execute(select_query)
                 result = cursor.fetchall()
-                res_msg += "Сумма продаж за период: " + str(float(result[0][0]))
-                res_msg += "\nКоличество продаж за период: " + str(int(result[0][1]))
+                res_msg += "Сумма продаж: " + str(float(result[0][0]))
+                res_msg += "\nКоличество продаж: " + str(int(result[0][1])) \
+                           + "\n"
+
+                cursor.execute(select_query_top)
+                result = cursor.fetchall()
+                res_msg += "\n\nТоп товаров по объему продаж:\n"
+
+                for (index, row) in enumerate(result):
+                    res_msg += "{0}. {1} - {2}\n".format(index + 1, row[0], float(row[1]))
+
             return res_msg
 
     except Error as e:
