@@ -28,7 +28,7 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler, MessageHandler, filters
 )
-from testdb import writeToBd, getStat
+from database import writeToBd, getStat
 
 # Enable logging
 logging.basicConfig(
