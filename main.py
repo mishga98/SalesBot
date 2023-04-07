@@ -14,29 +14,21 @@ ConversationHandler.
 Send /start to initiate the conversation.
 Press Ctrl-C on the command line to stop the bot.
 """
+
+import os, sys
+
+sys.path.append('/home/m/mishgauq/.local/lib/python3.6/site-packages/PIL')
+
 import logging
-
-from telegram import __version__ as TG_VER
-
-try:
-    from telegram import __version_info__
-except ImportError:
-    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
-
-if __version_info__ < (20, 0, 0, "alpha", 1):
-    raise RuntimeError(
-        f"This example is not compatible with your current PTB version {TG_VER}. To view the "
-        f"{TG_VER} version of this example, "
-        f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
-    )
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
-    ConversationHandler,
+    ConversationHandler, MessageHandler, filters
 )
+from testdb import writeToBd, getStat
 
 # Enable logging
 logging.basicConfig(
@@ -45,7 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-START_ROUTES, END_ROUTES = range(2)
+START_ROUTES, INPUT_ROUTES, SHOW_ROUTES = range(3)
 # Callback data
 ONE, TWO, THREE, FOUR = range(4)
 
@@ -61,13 +53,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # a list (hence `[[...]]`).
     keyboard = [
         [
-            InlineKeyboardButton("1", callback_data=str(ONE)),
-            InlineKeyboardButton("2", callback_data=str(TWO)),
+            InlineKeyboardButton("Создать запись", callback_data=str(ONE)),
+            InlineKeyboardButton("Отчет продаж", callback_data=str(TWO)),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Send message with text and appended InlineKeyboard
-    await update.message.reply_text("Start handler, Choose a route", reply_markup=reply_markup)
+    await update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
     # Tell ConversationHandler that we're in state `FIRST` now
     return START_ROUTES
 
@@ -81,15 +73,15 @@ async def start_over(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.answer()
     keyboard = [
         [
-            InlineKeyboardButton("1", callback_data=str(ONE)),
-            InlineKeyboardButton("2", callback_data=str(TWO)),
+            InlineKeyboardButton("Создать запись", callback_data=str(ONE)),
+            InlineKeyboardButton("Список продаж", callback_data=str(TWO)),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Instead of sending a new message, edit the message that
     # originated the CallbackQuery. This gives the feeling of an
     # interactive menu.
-    await query.edit_message_text(text="Start handler, Choose a route", reply_markup=reply_markup)
+    await query.edit_message_text(text="Что вы хотите сделать?", reply_markup=reply_markup)
     return START_ROUTES
 
 
@@ -97,34 +89,21 @@ async def one(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show new choice of buttons"""
     query = update.callback_query
     await query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton("3", callback_data=str(THREE)),
-            InlineKeyboardButton("4", callback_data=str(FOUR)),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+
     await query.edit_message_text(
-        text="First CallbackQueryHandler, Choose a route", reply_markup=reply_markup
+        text="Введите данные продажи в формате: \nДата (yyyy-MM-dd)\nНазвание товара \nЦена за единицу \nКоличество"
     )
-    return START_ROUTES
+    return INPUT_ROUTES
 
 
 async def two(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show new choice of buttons"""
     query = update.callback_query
     await query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton("1", callback_data=str(ONE)),
-            InlineKeyboardButton("3", callback_data=str(THREE)),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+
     await query.edit_message_text(
-        text="Second CallbackQueryHandler, Choose a route", reply_markup=reply_markup
-    )
-    return START_ROUTES
+        text="Введите дату начала и дату конца учетного периода в формате: \nДата налача (yyyy-MM-dd)\nДата конца")
+    return SHOW_ROUTES
 
 
 async def three(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -142,24 +121,7 @@ async def three(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         text="Third CallbackQueryHandler. Do want to start over?", reply_markup=reply_markup
     )
     # Transfer to conversation state `SECOND`
-    return END_ROUTES
-
-
-async def four(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Show new choice of buttons"""
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton("2", callback_data=str(TWO)),
-            InlineKeyboardButton("3", callback_data=str(THREE)),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        text="Fourth CallbackQueryHandler, Choose a route", reply_markup=reply_markup
-    )
-    return START_ROUTES
+    return INPUT_ROUTES
 
 
 async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -170,6 +132,60 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.answer()
     await query.edit_message_text(text="See you next time!")
     return ConversationHandler.END
+
+
+async def writeData(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # await update.message.reply_text(update.message.text)
+    data = update.message.text.split("\n")
+    if not inputChecker(data):
+        result = "Произошла ошибка записи, проверьте формат данных"
+    else:
+        result = writeToBd(data)
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Создать запись", callback_data=str(ONE)),
+            InlineKeyboardButton("Отчет продаж", callback_data=str(TWO)),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Send message with text and appended InlineKeyboard
+    await update.message.reply_text(result)
+    await update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
+    # Tell ConversationHandler that we're in state `FIRST` now
+    return START_ROUTES
+
+
+async def show_stat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # await update.message.reply_text(update.message.text)
+    data = update.message.text.split("\n")
+    if not dateInputChecker(data):
+        result = "Произошла ошибка чтения, проверьте формат данных"
+    else:
+        result = getStat(data)
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Создать запись", callback_data=str(ONE)),
+            InlineKeyboardButton("Отчет продаж", callback_data=str(TWO)),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Send message with text and appended InlineKeyboard
+    await update.message.reply_text(result)
+    await update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
+    # Tell ConversationHandler that we're in state `FIRST` now
+    return START_ROUTES
+
+
+def inputChecker(data):
+    if (len(data) == 4):
+        return True
+
+
+def dateInputChecker(data):
+    if (len(data) == 2):
+        return True
 
 
 def main() -> None:
@@ -189,13 +205,18 @@ def main() -> None:
             START_ROUTES: [
                 CallbackQueryHandler(one, pattern="^" + str(ONE) + "$"),
                 CallbackQueryHandler(two, pattern="^" + str(TWO) + "$"),
-                CallbackQueryHandler(three, pattern="^" + str(THREE) + "$"),
-                CallbackQueryHandler(four, pattern="^" + str(FOUR) + "$"),
+                CallbackQueryHandler(three, pattern="^" + str(THREE) + "$")
+
             ],
-            END_ROUTES: [
+            INPUT_ROUTES: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, writeData),
                 CallbackQueryHandler(start_over, pattern="^" + str(ONE) + "$"),
                 CallbackQueryHandler(end, pattern="^" + str(TWO) + "$"),
             ],
+            SHOW_ROUTES: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, show_stat),
+
+            ]
         },
         fallbacks=[CommandHandler("start", start)],
     )
