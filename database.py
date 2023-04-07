@@ -1,8 +1,7 @@
-import mysql.connector
 from mysql.connector import connect, Error
 
 
-def writeToBd(data):
+def write_to_db(data):
     result = "Произошла ошибка записи, проверьте формат данных"
     try:
         date, product, price, amount = data
@@ -27,7 +26,7 @@ def writeToBd(data):
     return result
 
 
-def getStat(data):
+def get_stat(data):
     result = "Произошла ошибка запроса, проверьте формат данных"
     try:
         start_date, end_date = data
@@ -56,5 +55,3 @@ def getStat(data):
     except Error as e:
         print(e)
         return result
-    return result
-
