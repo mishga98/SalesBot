@@ -26,6 +26,35 @@ def write_to_db(data):
     return result
 
 
+def write_to_db_multiple(data):
+    result = "Произошла ошибка записи, проверьте формат данных"
+    values_row = ""
+    for row in data:
+        date, product, price, amount = row
+        values_row += """ ("{0}", "{1}", {2}, {3}), """\
+            .format(date, product, price, amount)
+    values_row = values_row[:-2]
+    try:
+
+        with connect(
+                host="localhost",
+                user="mishgauq_sales",
+                password="Mishga17",
+                database="mishgauq_sales",
+        ) as connection:
+            insert_query = """
+            INSERT INTO sales (date, product, price, amount)
+            VALUES""" + values_row
+            print(insert_query)
+            with connection.cursor() as cursor:
+                cursor.execute(insert_query)
+                connection.commit()
+        result = "Запись успешно добавлена!"
+    except Error as e:
+        print(e)
+        return result
+    return result
+
 def get_stat(data):
     result = "Произошла ошибка запроса, проверьте формат данных"
     try:
